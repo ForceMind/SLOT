@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>3x3 SLOT H5 Demo</title>
+<style>
+  /* =================== 高饱和主题 + 紧凑布局 =================== */
+  :root{
+    --bg1:#0a0014; --bg2:#18002b; --bg3:#2b0040;
+    --border:#4e1b9a; --muted:#cbb6ff; --text:#fff7ff;
+    --btn1:#3a0ca3; --btn2:#7209b7; --btn3:#f72585;
+    --cell1:#32104d; --cell2:#3f0f6b; --cellBorder:#7b2cbf;
+    --win:#29f19c; --warn:#ffd166;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;color:var(--text);
+    background:linear-gradient(135deg,var(--bg1),var(--bg2) 40%, var(--bg3));}
+  .app{max-width:900px;margin:0 auto;padding:12px}
+  header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+  .brand{font-weight:900;letter-spacing:.6px;font-size:18px}
+  .chip{display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--border);border-radius:12px;background:linear-gradient(145deg,#2a0b4b,#140628)}
+  .chip .add{width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;border-radius:6px;background:linear-gradient(180deg,#ff2fd0,#c112a1);border:1px solid #ff8be6;cursor:pointer;font-weight:900}
+
+  .board-wrap{border:1px solid var(--border);border-radius:12px;padding:10px;background:linear-gradient(180deg,rgba(255,255,255,.05),transparent)}
+
+  /* 转轴 */
+  .reels{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;background:linear-gradient(160deg,var(--cell1),var(--cell2));padding:8px;border-radius:10px;border:1px solid var(--cellBorder)}
+  .col{display:grid;grid-template-rows:repeat(3,1fr);gap:6px}
+  .cell{aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;font-size:36px;border-radius:10px;border:1px solid #a064ff;background:radial-gradient(circle at 30% 25%, #5a1fb5, #2b0b5e 60%);box-shadow:inset 0 0 12px rgba(0,0,0,.45),0 2px 8px rgba(0,0,0,.45)}
+  .cell.spinning{animation:pulse .25s linear infinite alternate;filter:saturate(.95) brightness(.97)}
+  @keyframes pulse{to{transform:translateY(-1px)}}
+
+  /* 控制区：桌面三列；移动端两列，第三块独占一行 */
+  .controls{display:grid;grid-template-columns:repeat(2,1fr) 1.2fr;gap:6px;margin-top:8px}
+  .group{display:flex;align-items:center;gap:6px;padding:6px;border:1px solid var(--border);border-radius:10px;background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));min-height:44px}
+  .group label{color:var(--muted);font-size:12px;white-space:nowrap}
+  .input{display:flex;align-items:center;gap:6px;margin-left:auto}
+  .btn{appearance:none;border:1px solid #a84ae4;background:linear-gradient(180deg,var(--btn2),var(--btn3));color:#fff;padding:6px 10px;border-radius:8px;cursor:pointer;font-weight:700;min-width:38px}
+  .btn.secondary{background:linear-gradient(180deg,var(--btn1),var(--btn2))}
+  .btn.ghost{background:transparent;border-style:dashed}
+  .grow{flex:1}
+  .status{margin-top:8px;min-height:24px;font-size:14px}
+  .status .ok{color:var(--win)}
+  .status .warn{color:var(--warn)}
+
+  /* ===== 支付表样式 ===== */
+  .status{margin-top:12px; min-height:28px; font-size:14px}
+  .status .ok{color:var(--win)}
+  .status .bad{color:var(--lose)}
+  .status .warn{color:var(--warn)}
+  .paytable{margin-top:10px; font-size:13px; border-top:1px dashed #8b3df0; padding-top:10px; color:var(--muted)}
+  .pt-grid{display:grid; grid-template-columns:repeat(5, minmax(0,1fr)); gap:6px;}
+  .pt-item{background:rgba(255,255,255,.06); border:1px solid var(--border); padding:6px; border-radius:10px; text-align:center}
+
+  /* 设置弹窗 */
+  .modal-mask{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:10}
+  .modal{width:min(560px,92vw);border:1px solid var(--border);border-radius:12px;padding:12px;background:linear-gradient(180deg,#2a0b4b,#15062a)}
+  .row{display:flex;align-items:center;gap:8px;margin:8px 0;flex-wrap:wrap}
+  .row .spacer{flex:1}
+  .field{display:flex;align-items:center;gap:6px}
+  .field input[type=number]{width:110px;padding:6px 8px;border-radius:8px;border:1px solid #a84ae4;background:#11061f;color:#fff}
+  .muted{color:var(--muted);font-size:12px}
+
+  /* 移动端：两列 + 第二行独占 */
+  @media (max-width:640px){
+    .controls{grid-template-columns:repeat(2,1fr);grid-auto-rows:1fr}
+    .controls .group:nth-child(1),.controls .group:nth-child(2){grid-column:auto}
+    .controls .group:nth-child(3){grid-column:1/-1}
+    .cell{font-size:32px}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">🎰 3×3 SLOT</div>
+    <div class="chip">余额：<strong id="balance">1000</strong><span class="add" id="balanceAdd">+</span></div>
+  </header>
+
+  <section class="board-wrap">
+    <!-- 转轴：3×3 -->
+    <div class="reels" id="reels">
+      <div class="col">
+        <div class="cell" id="c00"></div><div class="cell" id="c01"></div><div class="cell" id="c02"></div>
+      </div>
+      <div class="col">
+        <div class="cell" id="c10"></div><div class="cell" id="c11"></div><div class="cell" id="c12"></div>
+      </div>
+      <div class="col">
+        <div class="cell" id="c20"></div><div class="cell" id="c21"></div><div class="cell" id="c22"></div>
+      </div>
+    </div>
+
+    <!-- 控制器：下注/线数 同一行；操作独占一行 -->
+    <div class="controls">
+      <div class="group">
+        <label>下注 (每线)</label>
+        <div class="input"><button class="btn secondary" id="betMinus">-</button><strong id="bet">5</strong><button class="btn secondary" id="betPlus">+</button></div>
+      </div>
+      <div class="group">
+        <label>线数</label>
+        <div class="input"><button class="btn secondary" id="linesMinus">-</button><strong id="lines">5</strong><button class="btn secondary" id="linesPlus">+</button></div>
+      </div>
+      <div class="group">
+        <button class="btn grow" id="spinBtn">SPIN</button>
+        <button class="btn" id="autoBtn">AUTO × 25</button>
+        <button class="btn ghost" id="settingsBtn">设置</button>
+      </div>
+    </div>
+
+    <div class="status" id="status"></div>
+
+      <div class="paytable">
+        <div>🎯 支付线（最多5条）：横排3条 + 两条对角线。3个相同图标连线即中奖（仅按从左到右结算）。</div>
+        <div class="pt-grid" id="ptGrid"></div>
+      </div>
+
+      <div class="footer muted">提示：线数不能超过设置中的“可用中奖线数”。</div>
+
+    <div class="status" id="status"></div>
+  </section>
+</div>
+
+<!-- 设置弹窗（含返奖率与中奖率模拟） -->
+<div class="modal-mask" id="modalMask">
+  <div class="modal">
+    <div class="row"><h3>⚙️ 设置</h3><div class="spacer"></div><button class="btn ghost" id="closeModal">关闭</button></div>
+    <div class="row">
+      <label>可用中奖线数（1–5）</label>
+      <div class="field"><button class="btn secondary" id="maxLinesMinus">-</button><strong id="maxLinesLabel">5</strong><button class="btn secondary" id="maxLinesPlus">+</button></div>
+    </div>
+    <div class="muted">下注“线数”不得超过此处设置的可用中奖线数。</div>
+    <hr style="border:none;border-top:1px dashed #8b3df0;margin:10px 0"/>
+    <h3>🧪 模拟下注（返奖率 & 中奖率）</h3>
+    <div class="row">
+      <label>每线下注</label><div class="field"><input id="simBet" type="number" value="5" min="1" max="100"/></div>
+      <label>线数</label><div class="field"><input id="simLines" type="number" value="5" min="1" max="5"/></div>
+      <label>次数</label><div class="field"><input id="simRounds" type="number" value="1000" min="1" max="100000"/></div>
+      <button class="btn" id="runSim">开始模拟</button>
+    </div>
+    <div class="muted">返奖率（RTP）= 总获得 / 总下注 × 100%；中奖率 = 中奖局数 / 总局数 × 100%。</div>
+    <div id="simResult" class="muted" style="margin-top:6px"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  /* ============ 符号/赔率与线路 ============ */
+  // 符号表（3连同图的倍数），weight 为出现权重
+  const SYMBOLS = [
+    { id:'CHERRY', icon:'🍒', weight:28, pay:10 },
+    { id:'BELL',   icon:'🔔', weight:24, pay:15 },
+    { id:'STAR',   icon:'⭐', weight:20, pay:20 },
+    { id:'DIAM',   icon:'💎', weight:16, pay:30 },
+    { id:'SEVEN',  icon:'7️⃣', weight:12, pay:50 },
+  ];
+  // 5条线：3横 + 2斜（左→右）
+  const LINES = [
+    [[0,0],[1,0],[2,0]], [[0,1],[1,1],[2,1]], [[0,2],[1,2],[2,2]],
+    [[0,0],[1,1],[2,2]], [[0,2],[1,1],[2,0]],
+  ];
+
+  /* ============ 状态与DOM ============ */
+  const state = { balance:1000, betPerLine:5, lines:5, maxLines:5, spinning:false, autoLeft:0, autoTimer:null };
+  const $ = s=>document.querySelector(s);
+  const balanceEl=$('#balance'), betEl=$('#bet'), linesEl=$('#lines'), statusEl=$('#status');
+  const spinBtn=$('#spinBtn'), autoBtn=$('#autoBtn'), settingsBtn=$('#settingsBtn'), balanceAdd=$('#balanceAdd');
+  const betMinus=$('#betMinus'), betPlus=$('#betPlus'), linesMinus=$('#linesMinus'), linesPlus=$('#linesPlus');
+  const modalMask=$('#modalMask'), closeModal=$('#closeModal');
+  const maxLinesMinus=$('#maxLinesMinus'), maxLinesPlus=$('#maxLinesPlus'), maxLinesLabel=$('#maxLinesLabel');
+  const simBet=$('#simBet'), simLines=$('#simLines'), simRounds=$('#simRounds'), runSim=$('#runSim'), simResult=$('#simResult');
+
+  /* ============ 工具函数 ============ */
+  function updateHUD(){
+    balanceEl.textContent = state.balance.toFixed(0);
+    betEl.textContent = state.betPerLine.toFixed(0);
+    linesEl.textContent = state.lines;
+    autoBtn.textContent = state.autoLeft>0 ? `停止自动（剩 ${state.autoLeft}）` : 'AUTO × 25';
+    maxLinesLabel.textContent = state.maxLines;
+  }
+  function setStatus(msg,cls=''){ statusEl.className='status'; if(cls) statusEl.classList.add(cls); statusEl.textContent=msg; }
+  function totalBet(){ return state.betPerLine*state.lines; }
+  function canSpin(){ if(state.lines>state.maxLines) return false; const tb=totalBet(); return !state.spinning && tb>0 && state.balance>=tb; }
+
+  // 加权随机取符号
+  function pickSymbol(){ const tw=SYMBOLS.reduce((a,s)=>a+s.weight,0); let t=Math.random()*tw; for(const s of SYMBOLS){ if((t-=s.weight)<=0) return s; } return SYMBOLS[0]; }
+  // 生成 3×3 结果 grid[col][row]
+  function spinOnce(){ return Array.from({length:3},()=>Array.from({length:3},()=>pickSymbol())); }
+  // 评估中奖
+  function evaluate(grid, betPerLine, lines){
+    const active = LINES.slice(0, lines); let win=0, hits=[];
+    for(let i=0;i<active.length;i++){
+      const c=active[i], a=grid[c[0][0]][c[0][1]], b=grid[c[1][0]][c[1][1]], d=grid[c[2][0]][c[2][1]];
+      if(a.id===b.id && b.id===d.id){ win += betPerLine * a.pay; hits.push(i); }
+    }
+    return {win, hit: hits.length>0}; // hit 表示此局是否中奖（至少命中一条线）
+  }
+  // 渲染到UI
+  function renderGrid(grid){ for(let x=0;x<3;x++) for(let y=0;y<3;y++){ document.getElementById(`c${x}${y}`).textContent = grid[x][y].icon; } }
+
+  /* ============ 旋转流程 ============ */
+  async function doSpin(){
+    if(!canSpin()){
+      if(state.spinning) return;
+      if(state.lines>state.maxLines){ setStatus(`线数(${state.lines}) 超出上限(${state.maxLines})，请在设置中调整。`,'warn'); return; }
+      const need=totalBet()-state.balance; setStatus(need>0?`余额不足，差 ${need.toFixed(0)}。`:'无效的下注。','warn'); return;
+    }
+    state.spinning=true; toggleControls(false);
+    const stake=totalBet(); state.balance-=stake; updateHUD(); setStatus(`下注 ${stake}，旋转中…`);
+
+    // 视觉滚动
+    const timers=[]; [0,1,2].forEach(cx=>{ const cells=[0,1,2].map(r=>document.getElementById(`c${cx}${r}`));
+      cells.forEach(el=>el.classList.add('spinning')); timers[cx]=setInterval(()=>cells.forEach(el=>el.textContent=pickSymbol().icon),55); });
+
+    const grid=spinOnce();
+    for(let col=0;col<3;col++){ await new Promise(r=>setTimeout(r,300+col*220)); clearInterval(timers[col]);
+      [0,1,2].forEach(rw=>{ const el=document.getElementById(`c${col}${rw}`); el.textContent=grid[col][rw].icon; el.classList.remove('spinning'); }); }
+
+    const {win,hit}=evaluate(grid, state.betPerLine, state.lines);
+    if(win>0){ state.balance+=win; setStatus(`🎉 中奖 ${win}！`,'ok'); }
+    else setStatus('未中奖，再试一次！');
+    updateHUD(); state.spinning=false; toggleControls(true);
+
+    if(state.autoLeft>0){ state.autoLeft--; updateHUD(); if(state.autoLeft>0){ state.autoTimer=setTimeout(doSpin,420);} }
+  }
+
+  /* ============ 交互 ============ */
+  function toggleControls(on){ spinBtn.disabled=!on; settingsBtn.disabled=!on; betMinus.disabled=betPlus.disabled=linesMinus.disabled=linesPlus.disabled=!on; }
+  spinBtn.addEventListener('click', doSpin);
+  autoBtn.addEventListener('click',()=>{ if(state.spinning) return; if(state.autoLeft>0){ state.autoLeft=0; if(state.autoTimer) clearTimeout(state.autoTimer); updateHUD(); setStatus('已停止自动。','warn'); } else { state.autoLeft=25; updateHUD(); doSpin(); }});
+  balanceAdd.addEventListener('click',()=>{ state.balance+=100; updateHUD(); setStatus('已添加试用金 100。','ok'); });
+  betMinus.addEventListener('click',()=>{ if(state.betPerLine>1){ state.betPerLine--; updateHUD(); }});
+  betPlus.addEventListener('click',()=>{ state.betPerLine=Math.min(100,state.betPerLine+1); updateHUD(); });
+  linesMinus.addEventListener('click',()=>{ state.lines=Math.max(1,state.lines-1); updateHUD(); });
+  linesPlus.addEventListener('click',()=>{ state.lines=Math.min(state.maxLines,state.lines+1); updateHUD(); });
+  settingsBtn.addEventListener('click',()=>{ modalMask.style.display='flex'; });
+  closeModal.addEventListener('click',()=>{ modalMask.style.display='none'; });
+  modalMask.addEventListener('click',e=>{ if(e.target===modalMask) modalMask.style.display='none';});
+  maxLinesMinus.addEventListener('click',()=>{ state.maxLines=Math.max(1,state.maxLines-1); if(state.lines>state.maxLines) state.lines=state.maxLines; updateHUD(); });
+  maxLinesPlus.addEventListener('click',()=>{ state.maxLines=Math.min(5,state.maxLines+1); updateHUD(); });
+
+  // 模拟：返奖率 + 中奖率
+  runSim.addEventListener('click',()=>{
+    const bet=Math.max(1,Math.min(100,Number(simBet.value)||1));
+    const lines=Math.max(1,Math.min(5,Number(simLines.value)||1));
+    const rounds=Math.max(1,Math.min(100000,Number(simRounds.value)||1));
+    const effLines=Math.min(lines,state.maxLines);
+
+    let totalStake=0,totalGain=0, winRounds=0; // 中奖局数 winRounds
+    for(let i=0;i<rounds;i++){
+      const grid=spinOnce();
+      totalStake += bet * effLines;
+      const res=evaluate(grid, bet, effLines);
+      totalGain += res.win;
+      if(res.hit) winRounds++;
+    }
+    const rtp = totalGain/totalStake*100;
+    const hitRate = winRounds/rounds*100;
+    simResult.innerHTML = `运行：${rounds.toLocaleString()} 次；每线：${bet}；线数：${effLines}<br/>总下注：${totalStake.toLocaleString()}；总获得：${totalGain.toLocaleString()}<br/>返奖率 RTP：<b>${rtp.toFixed(2)}%</b>　｜　中奖率：<b>${hitRate.toFixed(2)}%</b>`;
+  });
+
+  // 初始化网格
+  const init=spinOnce(); renderGrid(init); updateHUD(); setStatus('设置下注后点击 SPIN。');
+})();
+</script>
+</body>
+</html>
