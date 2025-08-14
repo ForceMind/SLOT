@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>3x3 SLOT H5 Demo</title>
+<style>
+  :root{
+    --bg:#0b1020;--panel:#121a33;--accent:#6cf;--accent2:#8ef;--text:#eaf2ff;--muted:#9fb3d1;
+    --win:#32d296;--lose:#ff6b6b;--warn:#ffd166;--btn:#1a264d;--btn2:#0f1835;
+    --cell:#0e1731;--cell2:#0d1428;--border:#243057;--glow:0 0 0.8rem rgba(108,207,255,.45);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; background: radial-gradient(1200px 700px at 70% -20%, #1a2a6c 0%, rgba(26,42,108,0) 60%),
+        radial-gradient(900px 500px at -20% 120%, #2b5876 0%, rgba(43,88,118,0) 60%), var(--bg); color:var(--text);}
+  .app{max-width:900px;margin:0 auto; padding:16px 16px 28px;}
+  header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+  .brand{font-weight:800;letter-spacing:.5px;font-size:18px}
+  .balance{display:flex;gap:8px;align-items:center;}
+  .chip{background:linear-gradient(145deg,#23335f,#0b1430); border:1px solid var(--border); padding:8px 10px; border-radius:14px; box-shadow: var(--glow);}
+  .chip strong{font-variant-numeric:tabular-nums}
+
+  .board-wrap{background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.0)); border:1px solid var(--border); border-radius:18px; padding:16px; box-shadow: var(--glow);}
+  .reels{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; background:linear-gradient(160deg,var(--cell),var(--cell2)); padding:12px; border-radius:12px; border:1px solid var(--border);}
+  .col{ display:grid; grid-template-rows:repeat(3,1fr); gap:10px;}
+  .cell{ aspect-ratio:1/1; display:flex; align-items:center; justify-content:center; font-size:42px; border-radius:12px; background:radial-gradient(circle at 30% 25%, #1a2752, #0a1231 60%);
+         border:1px solid #2a3c73; box-shadow: inset 0 0 12px rgba(0,0,0,.45), 0 2px 10px rgba(0,0,0,.35); position:relative; overflow:hidden;}
+  .cell.spinning{filter:saturate(0.65) brightness(.9); animation: pulse .3s linear infinite alternate;}
+  @keyframes pulse{ to{ transform: translateY(-1px);} }
+  .payline-mark{position:absolute; inset:0; pointer-events:none;}
+
+  .controls{display:grid; grid-template-columns:1.2fr 1.2fr 1.6fr; gap:10px; margin-top:14px;}
+  .group{background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.0)); border:1px solid var(--border); border-radius:14px; padding:10px; display:flex; align-items:center; gap:10px;}
+  .group label{color:var(--muted); font-size:12px;}
+  .input{display:flex; align-items:center; gap:8px; margin-left:auto;}
+  .btn{appearance:none; border:none; background:linear-gradient(180deg,var(--btn),var(--btn2)); color:var(--text); padding:10px 12px; border-radius:12px; cursor:pointer; border:1px solid var(--border); font-weight:600;}
+  .btn:disabled{opacity:.5; cursor:not-allowed}
+  .btn.secondary{background:linear-gradient(180deg,#17325a,#0c1b36)}
+  .btn.warn{background:linear-gradient(180deg,#6f3c0c,#3d1f04)}
+  .grow{flex:1}
+
+  .status{margin-top:12px; min-height:28px; font-size:14px}
+  .status .ok{color:var(--win)}
+  .status .bad{color:var(--lose)}
+  .status .warn{color:var(--warn)}
+
+  .footer{display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; color:var(--muted); font-size:12px}
+  .tag{border:1px solid var(--border); border-radius:999px; padding:6px 8px;}
+  .paytable{margin-top:10px; font-size:13px; border-top:1px dashed #2a3f77; padding-top:10px; color:var(--muted)}
+  .pt-grid{display:grid; grid-template-columns:repeat(5, minmax(0,1fr)); gap:6px;}
+  .pt-item{background:rgba(255,255,255,.03); border:1px solid var(--border); padding:6px; border-radius:10px; text-align:center}
+
+  @media (max-width:640px){
+    .cell{font-size:36px}
+    .controls{grid-template-columns:1fr;}
+    .group{justify-content:space-between}
+  }
+</style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="brand">🎰 3×3 SLOT</div>
+      <div class="balance chip" id="balanceChip">余额：<strong id="balance">1000</strong></div>
+    </header>
+
+    <section class="board-wrap">
+      <div class="reels" id="reels">
+        <!-- 3 columns × 3 rows -->
+        <div class="col" data-col="0">
+          <div class="cell" id="c00"></div>
+          <div class="cell" id="c01"></div>
+          <div class="cell" id="c02"></div>
+        </div>
+        <div class="col" data-col="1">
+          <div class="cell" id="c10"></div>
+          <div class="cell" id="c11"></div>
+          <div class="cell" id="c12"></div>
+        </div>
+        <div class="col" data-col="2">
+          <div class="cell" id="c20"></div>
+          <div class="cell" id="c21"></div>
+          <div class="cell" id="c22"></div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <div class="group">
+          <label>下注 (每线)</label>
+          <div class="input">
+            <button class="btn secondary" id="betMinus">-</button>
+            <strong id="bet">5</strong>
+            <button class="btn secondary" id="betPlus">+</button>
+          </div>
+        </div>
+
+        <div class="group">
+          <label>线数</label>
+          <div class="input">
+            <button class="btn secondary" id="linesMinus">-</button>
+            <strong id="lines">5</strong>
+            <button class="btn secondary" id="linesPlus">+</button>
+          </div>
+        </div>
+
+        <div class="group">
+          <button class="btn grow" id="spinBtn">SPIN</button>
+          <button class="btn" id="autoBtn">AUTO × 25</button>
+          <button class="btn warn" id="addBtn">+100 试用金</button>
+        </div>
+      </div>
+
+      <div class="status" id="status"></div>
+
+      <div class="paytable">
+        <div>🎯 支付线（最多5条）：横排3条 + 两条对角线。3个相同图标连线即中奖（仅按从左到右结算）。</div>
+        <div class="pt-grid" id="ptGrid"></div>
+      </div>
+
+      <div class="footer">
+        <span class="tag">可视RNG演示</span>
+        <span class="tag">移动端适配</span>
+        <span class="tag">无素材：Emoji符号</span>
+        <span class="tag">状态与余额模拟</span>
+      </div>
+    </section>
+  </div>
+
+<script>
+(function(){
+  // --- Symbols & Paytable ---
+  const SYMBOLS = [
+    { id:'CHERRY', icon:'🍒', weight:28, pay:10 },
+    { id:'BELL',   icon:'🔔', weight:24, pay:15 },
+    { id:'STAR',   icon:'⭐', weight:20, pay:20 },
+    { id:'DIAM',   icon:'💎', weight:16, pay:30 },
+    { id:'SEVEN',  icon:'7️⃣', weight:12, pay:50 },
+  ];
+  // Lines: indices [ [c,r], ... ] reading left->right across 3 cols
+  const LINES = [
+    // rows
+    [[0,0],[1,0],[2,0]],
+    [[0,1],[1,1],[2,1]],
+    [[0,2],[1,2],[2,2]],
+    // diagonals
+    [[0,0],[1,1],[2,2]],
+    [[0,2],[1,1],[2,0]],
+  ];
+
+  // --- State ---
+  const state = {
+    balance: 1000,
+    betPerLine: 5,
+    lines: 5,
+    spinning: false,
+    autoLeft: 0,
+  };
+
+  // --- DOM ---
+  const $ = sel => document.querySelector(sel);
+  const $$ = sel => Array.from(document.querySelectorAll(sel));
+  const balanceEl = $('#balance');
+  const betEl = $('#bet');
+  const linesEl = $('#lines');
+  const statusEl = $('#status');
+  const spinBtn = $('#spinBtn');
+  const autoBtn = $('#autoBtn');
+  const addBtn = $('#addBtn');
+  const betMinus = $('#betMinus');
+  const betPlus = $('#betPlus');
+  const linesMinus = $('#linesMinus');
+  const linesPlus = $('#linesPlus');
+
+  // Render paytable UI
+  const ptGrid = $('#ptGrid');
+  SYMBOLS.forEach(s=>{
+    const div = document.createElement('div');
+    div.className='pt-item';
+    div.textContent = `${s.icon} ×3 = 倍率 ${s.pay}×`;
+    ptGrid.appendChild(div);
+  });
+
+  // Helpers
+  function updateHUD(){
+    balanceEl.textContent = state.balance.toFixed(0);
+    betEl.textContent = state.betPerLine.toFixed(0);
+    linesEl.textContent = state.lines;
+    autoBtn.textContent = state.autoLeft>0 ? `AUTO 剩余 ${state.autoLeft}` : 'AUTO × 25';
+  }
+  function setStatus(msg, cls=''){
+    statusEl.className='status';
+    if(cls) statusEl.classList.add(cls);
+    statusEl.textContent = msg;
+  }
+  function canSpin(){
+    const totalBet = state.betPerLine * state.lines;
+    return !state.spinning && totalBet>0 && state.balance >= totalBet;
+  }
+
+  // Weighted RNG pick
+  function pickSymbol(){
+    const totalW = SYMBOLS.reduce((a,s)=>a+s.weight,0);
+    let t = Math.random()*totalW;
+    for(const s of SYMBOLS){
+      if((t -= s.weight) <= 0) return s;
+    }
+    return SYMBOLS[0];
+  }
+
+  // Create a 3x3 result grid [col][row] of symbols
+  function spinOnce(){
+    // For demo simplicity, each cell independent weighted pick
+    const grid = Array.from({length:3},()=>Array.from({length:3},()=>pickSymbol()));
+    return grid;
+  }
+
+  // Evaluate wins: only 3-of-a-kind along active LINES
+  function evaluate(grid){
+    const activeLines = LINES.slice(0, state.lines);
+    let win = 0; const hits = [];
+    for(let i=0;i<activeLines.length;i++){
+      const coords = activeLines[i];
+      const a = grid[coords[0][0]][coords[0][1]];
+      const b = grid[coords[1][0]][coords[1][1]];
+      const c = grid[coords[2][0]][coords[2][1]];
+      if(a.id===b.id && b.id===c.id){
+        const linePay = state.betPerLine * a.pay;
+        win += linePay;
+        hits.push({line:i, symbol:a});
+      }
+    }
+    return {win, hits};
+  }
+
+  // UI: paint grid
+  function renderGrid(grid){
+    for(let x=0;x<3;x++){
+      for(let y=0;y<3;y++){
+        const el = document.getElementById(`c${x}${y}`);
+        el.textContent = grid[x][y].icon;
+      }
+    }
+  }
+
+  // Spin animation (column stagger)
+  async function doSpin(){
+    if(!canSpin()){
+      if(state.spinning) return;
+      const need = state.betPerLine * state.lines - state.balance;
+      setStatus(need>0 ? `余额不足，差 ${need.toFixed(0)}。` : `无效的下注。`, 'warn');
+      return;
+    }
+    state.spinning = true; spinBtn.disabled = true; autoBtn.disabled = true; betMinus.disabled = betPlus.disabled = linesMinus.disabled = linesPlus.disabled = true;
+
+    const totalBet = state.betPerLine * state.lines;
+    state.balance -= totalBet; updateHUD(); setStatus(`下注 ${totalBet}，旋转中…`);
+
+    // start spin visual
+    const cols = [0,1,2];
+    const timers = [];
+    cols.forEach((cx,i)=>{
+      const cells = [0,1,2].map(r=>document.getElementById(`c${cx}${r}`));
+      cells.forEach(el=>el.classList.add('spinning'));
+      timers[cx] = setInterval(()=>{
+        cells.forEach(el=>{ el.textContent = pickSymbol().icon; });
+      }, 60);
+    });
+
+    // stop staggered
+    const grid = spinOnce();
+    for(let stopCol=0; stopCol<3; stopCol++){
+      await new Promise(res=>setTimeout(res, 350 + stopCol*250));
+      clearInterval(timers[stopCol]);
+      [0,1,2].forEach(r=>{
+        const el = document.getElementById(`c${stopCol}${r}`);
+        el.textContent = grid[stopCol][r].icon;
+        el.classList.remove('spinning');
+      });
+    }
+
+    // evaluate
+    const {win, hits} = evaluate(grid);
+    if(win>0){
+      state.balance += win;
+      setStatus(`🎉 中奖 ${win}！`, 'ok');
+      // Brief flash highlight for winning cells
+      hits.forEach(h=>{
+        const coords = LINES[h.line];
+        coords.forEach(([x,y])=>{
+          const el = document.getElementById(`c${x}${y}`);
+          el.animate([
+            {boxShadow:'0 0 0 rgba(50,210,150,0)'},
+            {boxShadow:'0 0 18px rgba(50,210,150,.9)'},
+            {boxShadow:'0 0 0 rgba(50,210,150,0)'}
+          ],{duration:700, easing:'ease-out'});
+        });
+      });
+    } else {
+      setStatus('未中奖，再试一次！');
+    }
+    updateHUD();
+
+    state.spinning = false; spinBtn.disabled = false; autoBtn.disabled = false; betMinus.disabled = betPlus.disabled = linesMinus.disabled = linesPlus.disabled = false;
+
+    // Continue autoplay if any
+    if(state.autoLeft>0){
+      state.autoLeft--; updateHUD();
+      if(state.autoLeft>0){
+        // small delay between spins
+        setTimeout(doSpin, 450);
+      }
+    }
+  }
+
+  // --- Events ---
+  spinBtn.addEventListener('click', doSpin);
+  autoBtn.addEventListener('click', ()=>{
+    if(state.spinning) return;
+    state.autoLeft = 25; updateHUD(); doSpin();
+  });
+  addBtn.addEventListener('click', ()=>{ state.balance += 100; updateHUD(); setStatus('已添加试用金 100。', 'ok'); });
+
+  betMinus.addEventListener('click', ()=>{ if(state.betPerLine>1){ state.betPerLine--; updateHUD(); }});
+  betPlus.addEventListener('click', ()=>{ state.betPerLine = Math.min(100, state.betPerLine+1); updateHUD(); });
+  linesMinus.addEventListener('click', ()=>{ state.lines = Math.max(1, state.lines-1); updateHUD(); });
+  linesPlus.addEventListener('click', ()=>{ state.lines = Math.min(5, state.lines+1); updateHUD(); });
+
+  // Init symbols in grid
+  const initGrid = Array.from({length:3},()=>Array.from({length:3},()=>pickSymbol()));
+  renderGrid(initGrid); updateHUD(); setStatus('设置下注后点击 SPIN。');
+})();
+</script>
+</body>
+</html>
